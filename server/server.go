@@ -4,6 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"sync"
+)
+
+var (
+	clients = make(map[net.Conn]bool)
+	clientsMu sync.Mutex
 )
 
 func main() {
@@ -25,7 +31,12 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("Cliente conectado: %s\n", conn.RemoteAddr())
+		// Registra um novo cliente
+		clientsMu.Lock()
+		clients[conn] = true
+		clientsMu.Unlock()
+		
+		fmt.Printf("Cliente conectado: %s | Total: %d\n", conn.RemoteAddr(), len(clients))
 
 		// Trata cada cliente em uma goroutine separada
 		go handleClient(conn)
@@ -33,17 +44,37 @@ func main() {
 }
 
 func handleClient(conn net.Conn) {
-	defer conn.Close()
-	scanner := bufio.NewScanner(conn)
+	defer func() {
+		// Remove clientes ao desconectar
+		clientsMu.Lock()
+		delete(clients, conn)
+		clientsMu.Unlock()
 
+		fmt.Printf("Cliente desconectado: %s | Total %d\n", conn.RemoteAddr(), len(clients))
+		conn.Close()
+	}()
+
+	
+	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		msg := scanner.Text()
-		fmt.Printf("[%s] Mensagem recebida: %s\n", conn.RemoteAddr(), msg)
+		fmt.Printf("[%s]: %s\n", conn.RemoteAddr(), msg)
+		broadcast(msg, conn)
+
+		
 		if scanner.Err() != nil {
 			fmt.Println("Erro ao ler mensagem:", scanner.Err())
 			return
 		}
 	}
+}
+func broadcast(msg string, sender net.Conn){
+	clientsMu.Lock()
+	defer clientsMu.Unlock()
 
-	fmt.Printf("Cliente desconectado: %s\n", conn.RemoteAddr())
+	for conn :=	range clients {
+		if conn != sender { // Não reenvia para quem mandou
+			fmt.Fprintln(conn, msg)	
+		}
+	}
 }
