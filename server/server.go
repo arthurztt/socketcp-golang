@@ -7,8 +7,13 @@ import (
 	"sync"
 )
 
+type Client struct {
+	conn 	 net.Conn
+	username string
+}
+
 var (
-	clients = make(map[net.Conn]bool)
+	clients = make(map[net.Conn]*Client)
 	clientsMu sync.Mutex
 )
 
@@ -31,11 +36,6 @@ func main() {
 			continue
 		}
 
-		// Registra um novo cliente
-		clientsMu.Lock()
-		clients[conn] = true
-		clientsMu.Unlock()
-		
 		fmt.Printf("Cliente conectado: %s | Total: %d\n", conn.RemoteAddr(), len(clients))
 
 		// Trata cada cliente em uma goroutine separada
@@ -44,29 +44,52 @@ func main() {
 }
 
 func handleClient(conn net.Conn) {
-	defer func() {
-		// Remove clientes ao desconectar
-		clientsMu.Lock()
-		delete(clients, conn)
-		clientsMu.Unlock()
+	defer conn.Close()
 
-		fmt.Printf("Cliente desconectado: %s | Total %d\n", conn.RemoteAddr(), len(clients))
-		conn.Close()
-	}()
-
-	
 	scanner := bufio.NewScanner(conn)
+	scanner.Err()
+	
+	// Pede o username como primeira interação
+	fmt.Fprintln(conn, "Digite seu username:")
+	if !scanner.Scan(){
+		return
+	}
+	username :=	scanner.Text()
+
+	//Registra client com username
+	client := &Client{conn: conn, username: username}
+
+	clientsMu.Lock()
+	clients[conn] = client
+	clientsMu.Unlock()
+
+	// Log no servidor
+	fmt.Printf("%s entrou no chat [%s]\n", username, conn.RemoteAddr())
+
+	// Avisa aos outros que alguém entrou
+	broadcast(fmt.Sprintf(">>> %s entrou no chat!", username), conn)
+
+	// Confirma para o próprio cliente
+	fmt.Fprintf(conn, "Bem-vindo, %s! Você está no chat.\n", username)
+
+	// Loop de mensagens
 	for scanner.Scan() {
 		msg := scanner.Text()
-		fmt.Printf("%s: %s\n", conn.RemoteAddr(), msg)
-		broadcast(msg, conn)
 
-		
-		if scanner.Err() != nil {
-			fmt.Println("Erro ao ler mensagem:", scanner.Err())
-			return
-		}
+		formatted := fmt.Sprintf("[%s]: %s", username, msg)
+	
+	 	fmt.Println(formatted)
+
+		broadcast(formatted, conn)
 	}
+
+	// Ao desconectar o servidor
+	clientsMu.Lock()
+	delete(clients, conn)
+	clientsMu.Unlock()
+
+	fmt.Printf("%s saiu do chat\n", username)
+	broadcast(fmt.Sprintf(">>> %s saiu do chat.", username), conn)
 }
 func broadcast(msg string, sender net.Conn){
 	clientsMu.Lock()
@@ -74,7 +97,7 @@ func broadcast(msg string, sender net.Conn){
 
 	for conn :=	range clients {
 		if conn != sender { // Não reenvia para quem mandou
-			fmt.Fprintln(conn, msg)	
+			fmt.Fprintln(conn, msg)
 		}
 	}
 }

@@ -22,7 +22,7 @@ func main() {
 	go func(){
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan(){
-			fmt.Printf("\n[Mensagem Recebida]: %s\n> ", scanner.Text())
+			fmt.Printf("\r%s\n> ", scanner.Text())
 			scanner.Err()
 		}
 		fmt.Println("\nServidor encerrou a conexão.")
