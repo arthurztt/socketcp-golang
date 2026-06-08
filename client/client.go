@@ -18,9 +18,19 @@ func main() {
 
 	fmt.Println("Conectado ao servidor! Digite suas mensagens (CTRL+C para sair):")
 
-	scanner := bufio.NewScanner(os.Stdin)
-	
+	// Goroutine separada para receber as mensagens enquanto o usuário digita
+	go func(){
+		scanner := bufio.NewScanner(conn)
+		for scanner.Scan(){
+			fmt.Printf("\n[Mensagem Recebida]: %s\n> ", scanner.Text())
+			scanner.Err()
+		}
+		fmt.Println("\nServidor encerrou a conexão.")
+		os.Exit(0)
+	}()
 
+	// Loop para enviar as mensagens
+	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("> ")
 		if !scanner.Scan() {
@@ -38,5 +48,4 @@ func main() {
 		}
 	}
 
-	fmt.Println("Conexão encerrada.")
 }

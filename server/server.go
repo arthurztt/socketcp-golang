@@ -58,7 +58,7 @@ func handleClient(conn net.Conn) {
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		msg := scanner.Text()
-		fmt.Printf("[%s]: %s\n", conn.RemoteAddr(), msg)
+		fmt.Printf("%s: %s\n", conn.RemoteAddr(), msg)
 		broadcast(msg, conn)
 
 		
