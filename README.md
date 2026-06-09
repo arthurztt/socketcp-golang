@@ -63,7 +63,12 @@ go run client.go
 
 ## Demonstração
 
-> Adicione aqui prints do terminal mostrando o chat funcionando
+> Imagens de como é o output no `server.go`
+![Exemplo-server.go](imgs/exemplo-server.go.png)
+
+---
+> Imagens de como é o output no `client.go`
+![Exemplo-client.go](imgs/exemplo-client.go.png)
 
 ## Estrutura do Projeto
 
